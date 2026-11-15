@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free PDF Invoice Generator</title>
+<style>
+  :root {
+    --navy: #14304f;
+    --navy-2: #1d4575;
+    --accent: #2b7de9;
+    --bg: #eef2f7;
+    --card: #fff;
+    --text: #1c2733;
+    --muted: #6a7a8c;
+    --border: #d8e0ea;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header { background: var(--navy); color: #fff; padding: 22px 16px; }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: .2px; }
+  header p { opacity: .8; font-size: .9rem; margin-top: 4px; }
+
+  .layout { flex: 1; display: grid; grid-template-columns: minmax(0, 480px) minmax(0, 1fr); gap: 20px; padding: 20px 16px 28px; align-items: start; }
+  @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(20,48,79,.07); }
+  .card h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--navy-2); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  label { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); margin: 10px 0 4px; }
+  label:first-of-type { margin-top: 0; }
+  input, select, textarea {
+    width: 100%; font: inherit; font-size: .95rem; padding: 10px 11px;
+    border: 1.5px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(43,125,233,.15); }
+  textarea { resize: vertical; min-height: 64px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .two > div > label:first-child { margin-top: 10px; }
+
+  /* Items */
+  .item { display: grid; grid-template-columns: 1fr 64px 92px 34px; gap: 8px; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed var(--border); }
+  .item .desc { grid-column: 1 / -1; }
+  .item .amt { grid-column: 1 / 4; font-size: .85rem; color: var(--muted); }
+  .item .amt b { color: var(--text); }
+  .item.head { display: none; }
+  .item .qty, .item .rate { text-align: right; }
+  .del { width: 34px; height: 34px; border: none; border-radius: 8px; background: #fdecec; color: #c0392b; font-size: 1.1rem; cursor: pointer; }
+  .del:hover { background: #fadbd8; }
+  .labels { display: grid; grid-template-columns: 1fr 64px 92px 34px; gap: 8px; font-size: .72rem; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .labels span:nth-child(2), .labels span:nth-child(3) { text-align: right; }
+
+  .btn { font: inherit; font-weight: 600; border: none; border-radius: 9px; padding: 11px 16px; cursor: pointer; transition: background .15s, transform .1s; }
+  .btn:active { transform: scale(.98); }
+  .btn-add { background: #eaf2fd; color: var(--accent); width: 100%; border: 1.5px dashed var(--accent); }
+  .btn-add:hover { background: #dbe9fb; }
+  .btn-pdf { background: var(--navy); color: #fff; width: 100%; font-size: 1.05rem; padding: 14px; box-shadow: 0 4px 14px rgba(20,48,79,.3); }
+  .btn-pdf:hover { background: var(--navy-2); }
+  .btn-pdf:disabled { opacity: .6; cursor: wait; }
+  .hint { font-size: .76rem; color: var(--muted); margin-top: 6px; }
+
+  .sum-row { display: flex; justify-content: space-between; font-size: .95rem; padding: 4px 0; }
+  .sum-row.total { font-size: 1.15rem; font-weight: 700; color: var(--navy); border-top: 2px solid var(--navy); margin-top: 6px; padding-top: 10px; }
+
+  /* Preview */
+  .preview-col { position: sticky; top: 14px; }
+  @media (max-width: 960px) { .preview-col { position: static; } }
+  .preview-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+  #previewBox { width: 100%; overflow: hidden; background: #fff; border-radius: 8px; box-shadow: 0 6px 24px rgba(20,48,79,.15); }
+  #previewScaler { transform-origin: top left; width: 794px; }
+
+  /* The invoice itself (A4 width @96dpi = 794px) */
+  .invoice { width: 794px; background: #fff; color: #1c2733; padding: 46px 48px 40px; font-size: 13px; line-height: 1.5; }
+  .inv-top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 4px solid #14304f; padding-bottom: 20px; }
+  .inv-brand { max-width: 400px; }
+  .inv-brand .biz { font-size: 22px; font-weight: 700; color: #14304f; }
+  .inv-brand .sub { color: #6a7a8c; margin-top: 4px; white-space: pre-line; }
+  .inv-title { text-align: right; }
+  .inv-title h3 { font-size: 34px; letter-spacing: 4px; color: #14304f; font-weight: 800; }
+  .inv-meta { margin-top: 8px; font-size: 13px; }
+  .inv-meta div { margin-top: 2px; }
+  .inv-meta span { color: #6a7a8c; display: inline-block; min-width: 70px; text-align: right; margin-right: 8px; }
+  .inv-bill { margin: 26px 0 22px; display: flex; justify-content: space-between; }
+  .inv-bill .lbl { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6a7a8c; font-weight: 700; }
+  .inv-bill .nm { font-size: 17px; font-weight: 700; margin-top: 4px; }
+  .inv-bill .cur { text-align: right; }
+  .inv-table { width: 100%; border-collapse: collapse; }
+  .inv-table th { background: #14304f; color: #fff; padding: 10px 12px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; text-align: left; }
+  .inv-table th.r, .inv-table td.r { text-align: right; }
+  .inv-table td { padding: 11px 12px; border-bottom: 1px solid #e3e9f0; vertical-align: top; }
+  .inv-table tr:nth-child(even) td { background: #f7f9fc; }
+  .inv-table td.d { white-space: pre-wrap; word-break: break-word; }
+  .inv-table tr { page-break-inside: avoid; }
+  .inv-totals { width: 290px; margin: 18px 0 0 auto; page-break-inside: avoid; }
+  .inv-totals div { display: flex; justify-content: space-between; padding: 5px 12px; }
+  .inv-totals .grand { background: #14304f; color: #fff; font-size: 16px; font-weight: 700; margin-top: 6px; padding: 11px 12px; border-radius: 4px; }
+  .inv-notes { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e3e9f0; page-break-inside: avoid; }
+  .inv-notes .lbl { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6a7a8c; font-weight: 700; margin-bottom: 4px; }
+  .inv-notes p { white-space: pre-wrap; }
+  .inv-thanks { margin-top: 30px; text-align: center; color: #14304f; font-weight: 600; page-break-inside: avoid; }
+
+  footer { text-align: center; padding: 20px 16px 28px; color: var(--muted); font-size: .85rem; }
+  .btn-footer { display: inline-block; margin-top: 10px; background: var(--navy); color: #fff; text-decoration: none; font-weight: 600; font-size: .88rem; padding: 10px 18px; border-radius: 999px; }
+  .btn-footer:hover { background: var(--navy-2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>PDF Invoice Generator</h1>
+    <p>Professional invoices for freelancers &amp; small businesses — free, private, no sign-up.</p>
+  </div>
+</header>
+
+<div class="wrap" style="width:100%">
+<div class="layout">
+
+  <!-- ============ FORM ============ -->
+  <div>
+    <div class="card">
+      <h2>From (Your Details)</h2>
+      <label for="sName">Name / Business Name</label>
+      <input id="sName" placeholder="e.g. Ali Raza Design Studio" autocomplete="organization">
+      <label for="sPhone">Phone Number</label>
+      <input id="sPhone" type="tel" placeholder="e.g. 0300 1234567" autocomplete="tel">
+      <label for="sAddr">Address</label>
+      <textarea id="sAddr" placeholder="Street, City, Country"></textarea>
+      <div class="hint">Your details are saved in this browser for next time.</div>
+    </div>
+
+    <div class="card">
+      <h2>Bill To (Client)</h2>
+      <label for="cName">Client Name</label>
+      <input id="cName" placeholder="e.g. Acme Traders">
+      <div class="two">
+        <div>
+          <label for="invNo">Invoice Number</label>
+          <input id="invNo" value="INV-001">
+        </div>
+        <div>
+          <label for="invDate">Date</label>
+          <input id="invDate" type="date">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Items</h2>
+      <div class="labels"><span>Description</span><span>Qty</span><span>Rate</span><span></span></div>
+      <div id="items"></div>
+      <button class="btn btn-add" id="addItem" type="button">+ Add New Item</button>
+    </div>
+
+    <div class="card">
+      <h2>Currency &amp; Total</h2>
+      <div class="two">
+        <div>
+          <label for="currency">Currency</label>
+          <select id="currency">
+            <option value="PKR">PKR – Pakistani Rupee</option>
+            <option value="EUR">EUR – Euro</option>
+            <option value="USD">USD – US Dollar</option>
+          </select>
+        </div>
+        <div>
+          <label for="tax">Tax / GST % (optional)</label>
+          <input id="tax" type="number" min="0" max="100" step="any" inputmode="decimal" placeholder="0">
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <div class="sum-row"><span>Subtotal</span><span id="fSub"></span></div>
+        <div class="sum-row"><span>Tax</span><span id="fTax"></span></div>
+        <div class="sum-row total"><span>Total</span><span id="fTotal"></span></div>
+      </div>
+      <label for="notes" style="margin-top:14px">Notes / Payment Details (optional)</label>
+      <textarea id="notes" placeholder="e.g. Bank: HBL, Account Title: Ali Raza, IBAN: PK00 ...&#10;Payment due within 7 days."></textarea>
+    </div>
+
+    <button class="btn btn-pdf" id="pdfBtn" type="button">⬇ Download PDF Invoice</button>
+  </div>
+
+  <!-- ============ PREVIEW ============ -->
+  <div class="preview-col">
+    <div class="preview-title">Live Preview</div>
+    <div id="previewBox"><div id="previewScaler"><div class="invoice" id="invoice"></div></div></div>
+  </div>
+
+</div>
+</div>
+
+<footer>
+  <div>Everything happens in your browser — no data is uploaded anywhere.</div>
+  <a class="btn-footer" id="contactBtn" href="#" target="_blank" rel="noopener">Need a custom tool or website? Contact me on WhatsApp</a>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+/* ====== Apna WhatsApp number yahan likhein (country code ke sath, sirf digits) — e.g. "923001234567" ====== */
+const MY_WHATSAPP_NUMBER = "";
+const MY_CONTACT_MESSAGE = "Hi! I need a custom tool or website.";
+
+const $ = id => document.getElementById(id);
+const SYMBOL = { PKR: "Rs ", EUR: "€", USD: "$" };
+let items = [{ desc: "", qty: 1, rate: "" }];
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+function money(n) {
+  const cur = $("currency").value;
+  return SYMBOL[cur] + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtDate(v) {
+  if (!v) return "";
+  const [y, m, d] = v.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/* ---------- Saved sender details ---------- */
+const SAVE_KEYS = ["sName", "sPhone", "sAddr"];
+try { SAVE_KEYS.forEach(k => { const v = localStorage.getItem("inv_" + k); if (v) $(k).value = v; }); } catch (_) {}
+function saveSender() { try { SAVE_KEYS.forEach(k => localStorage.setItem("inv_" + k, $(k).value)); } catch (_) {} }
+
+/* default date = today */
+(function () {
+  const t = new Date(), p = n => String(n).padStart(2, "0");
+  $("invDate").value = t.getFullYear() + "-" + p(t.getMonth() + 1) + "-" + p(t.getDate());
+})();
+
+/* ---------- Items ---------- */
+function renderItems() {
+  $("items").innerHTML = items.map((it, i) => `
+    <div class="item" data-i="${i}">
+      <input class="desc" data-f="desc" placeholder="Description of work or item" value="${esc(it.desc)}">
+      <input class="qty" data-f="qty" type="number" min="0" step="any" inputmode="decimal" value="${esc(it.qty)}" aria-label="Quantity">
+      <input class="rate" data-f="rate" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00" value="${esc(it.rate)}" aria-label="Rate">
+      <button class="del" type="button" data-del="${i}" title="Remove item" aria-label="Remove item">✕</button>
+      <div class="amt">Amount: <b id="amt${i}">${money(num(it.qty) * num(it.rate))}</b></div>
+    </div>`).join("");
+}
+$("items").addEventListener("input", e => {
+  const row = e.target.closest(".item");
+  if (!row || !e.target.dataset.f) return;
+  const i = +row.dataset.i;
+  items[i][e.target.dataset.f] = e.target.value;
+  update();
+});
+$("items").addEventListener("click", e => {
+  const b = e.target.closest("[data-del]");
+  if (!b) return;
+  if (items.length === 1) { items = [{ desc: "", qty: 1, rate: "" }]; }
+  else items.splice(+b.dataset.del, 1);
+  renderItems(); update();
+});
+$("addItem").addEventListener("click", () => {
+  items.push({ desc: "", qty: 1, rate: "" });
+  renderItems(); update();
+  const last = $("items").querySelector(".item:last-child .desc");
+  if (last) last.focus();
+});
+
+/* ---------- Calculation & preview ---------- */
+function totals() {
+  const sub = items.reduce((s, it) => s + num(it.qty) * num(it.rate), 0);
+  const taxPct = Math.max(0, num($("tax").value));
+  const tax = sub * taxPct / 100;
+  return { sub, taxPct, tax, total: sub + tax };
+}
+
+function update() {
+  const t = totals();
+  items.forEach((it, i) => { const el = $("amt" + i); if (el) el.textContent = money(num(it.qty) * num(it.rate)); });
+  $("fSub").textContent = money(t.sub);
+  $("fTax").textContent = money(t.tax);
+  $("fTotal").textContent = money(t.total);
+
+  const rows = items.filter(it => it.desc.trim() || num(it.rate) > 0);
+  const shown = rows.length ? rows : [{ desc: "Item description", qty: 1, rate: 0 }];
+
+  $("invoice").innerHTML = `
+    <div class="inv-top">
+      <div class="inv-brand">
+        <div class="biz">${esc($("sName").value.trim() || "Your Business Name")}</div>
+        <div class="sub">${esc([$("sPhone").value.trim(), $("sAddr").value.trim()].filter(Boolean).join("\n"))}</div>
+      </div>
+      <div class="inv-title">
+        <h3>INVOICE</h3>
+        <div class="inv-meta">
+          <div><span>Invoice #</span><b>${esc($("invNo").value.trim() || "—")}</b></div>
+          <div><span>Date</span><b>${esc(fmtDate($("invDate").value) || "—")}</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="inv-bill">
+      <div>
+        <div class="lbl">Bill To</div>
+        <div class="nm">${esc($("cName").value.trim() || "Client Name")}</div>
+      </div>
+      <div class="cur">
+        <div class="lbl">Currency</div>
+        <div class="nm">${esc($("currency").value)}</div>
+      </div>
+    </div>
+    <table class="inv-table">
+      <thead><tr><th style="width:42px">#</th><th>Description</th><th class="r" style="width:60px">Qty</th><th class="r" style="width:110px">Rate</th><th class="r" style="width:120px">Amount</th></tr></thead>
+      <tbody>
+        ${shown.map((it, i) => `<tr>
+          <td>${i + 1}</td>
+          <td class="d">${esc(it.desc.trim() || "—")}</td>
+          <td class="r">${esc(num(it.qty))}</td>
+          <td class="r">${money(num(it.rate))}</td>
+          <td class="r"><b>${money(num(it.qty) * num(it.rate))}</b></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <div class="inv-totals">
+      <div><span>Subtotal</span><span>${money(t.sub)}</span></div>
+      ${t.taxPct > 0 ? `<div><span>Tax (${esc(t.taxPct)}%)</span><span>${money(t.tax)}</span></div>` : ""}
+      <div class="grand"><span>Total Due</span><span>${money(t.total)}</span></div>
+    </div>
+    ${$("notes").value.trim() ? `<div class="inv-notes"><div class="lbl">Notes / Payment Details</div><p>${esc($("notes").value.trim())}</p></div>` : ""}
+    <div class="inv-thanks">Thank you for your business!</div>`;
+  fitPreview();
+}
+
+function fitPreview() {
+  const box = $("previewBox"), sc = $("previewScaler"), inv = $("invoice");
+  const scale = Math.min(1, box.clientWidth / 794);
+  sc.style.transform = "scale(" + scale + ")";
+  box.style.height = (inv.offsetHeight * scale) + "px";
+}
+window.addEventListener("resize", fitPreview);
+
+["sName", "sPhone", "sAddr", "cName", "invNo", "invDate", "currency", "tax", "notes"].forEach(id => {
+  $(id).addEventListener("input", () => { if (SAVE_KEYS.includes(id)) saveSender(); update(); });
+  $(id).addEventListener("change", () => update());
+});
+
+/* ---------- PDF ---------- */
+$("pdfBtn").addEventListener("click", async () => {
+  if (typeof html2pdf === "undefined") {
+    alert("PDF library could not load. Please check your internet connection and refresh.");
+    return;
+  }
+  if (!items.some(it => it.desc.trim() && num(it.rate) > 0)) {
+    alert("Please add at least one item with a description and rate.");
+    return;
+  }
+  const btn = $("pdfBtn");
+  btn.disabled = true; btn.textContent = "Generating PDF…";
+
+  // Render a clean, un-scaled copy so the PDF is always full A4 size
+  const holder = document.createElement("div");
+  holder.style.cssText = "position:fixed;left:0;top:0;width:794px;background:#fff;z-index:-1;";
+  holder.appendChild($("invoice").cloneNode(true));
+  document.body.appendChild(holder);
+
+  const safeNo = ($("invNo").value.trim() || "invoice").replace(/[^\w\-]+/g, "_");
+  try {
+    await html2pdf().set({
+      margin: [8, 0, 8, 0],
+      filename: "Invoice-" + safeNo + ".pdf",
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: "#ffffff" },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["css", "legacy"], avoid: ["tr", ".inv-totals", ".inv-notes", ".inv-thanks"] }
+    }).from(holder.firstChild).save();
+  } catch (err) {
+    alert("Something went wrong while creating the PDF. Please try again.");
+  } finally {
+    document.body.removeChild(holder);
+    btn.disabled = false; btn.textContent = "⬇ Download PDF Invoice";
+  }
+});
+
+/* ---------- Footer contact ---------- */
+(function () {
+  const btn = $("contactBtn");
+  const n = MY_WHATSAPP_NUMBER.replace(/\D/g, "");
+  if (n) btn.href = "https://wa.me/" + n + "?text=" + encodeURIComponent(MY_CONTACT_MESSAGE);
+  else btn.addEventListener("click", e => { e.preventDefault(); alert("Script ke shuru mein MY_WHATSAPP_NUMBER mein apna number daalein."); });
+})();
+
+renderItems();
+update();
+setTimeout(fitPreview, 100);
+</script>
+</body>
+</html>
