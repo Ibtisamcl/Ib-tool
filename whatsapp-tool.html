@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp Direct Chat & Link Generator</title>
+<style>
+  :root {
+    --green: #25D366;
+    --green-dark: #128C7E;
+    --green-deep: #075E54;
+    --bg: #f0f7f3;
+    --card: #ffffff;
+    --text: #1f2d27;
+    --muted: #6b7c74;
+    --border: #d9e6df;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: linear-gradient(135deg, var(--green-deep), var(--green-dark));
+    color: #fff;
+    text-align: center;
+    padding: 36px 16px 70px;
+  }
+  header .logo {
+    width: 56px; height: 56px; margin: 0 auto 12px;
+    background: var(--green); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  }
+  header .logo svg { width: 32px; height: 32px; fill: #fff; }
+  header h1 { font-size: 1.5rem; font-weight: 700; }
+  header p { margin-top: 6px; opacity: .9; font-size: .95rem; }
+
+  main { flex: 1; width: 100%; max-width: 520px; margin: -48px auto 0; padding: 0 16px 24px; }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 22px 20px;
+    box-shadow: 0 8px 28px rgba(7,94,84,.12);
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: .85rem; font-weight: 600; color: var(--green-deep); margin: 14px 0 6px; }
+  label:first-child { margin-top: 0; }
+  .row { display: flex; gap: 8px; position: relative; }
+  input, textarea {
+    width: 100%;
+    font: inherit; font-size: 1rem;
+    padding: 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: #fff; color: var(--text);
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, textarea:focus, .cc-btn:focus-visible {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(37,211,102,.18);
+  }
+  textarea { resize: vertical; min-height: 96px; }
+  .hint { font-size: .78rem; color: var(--muted); margin-top: 5px; }
+  .error { color: #c0392b; font-size: .85rem; margin-top: 10px; min-height: 1.1em; }
+
+  /* Country picker */
+  .cc-btn {
+    flex: 0 0 auto; width: 128px;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    font: inherit; font-size: 1rem; font-weight: 600;
+    padding: 12px; background: #fff; color: var(--text);
+    border: 1.5px solid var(--border); border-radius: 10px; cursor: pointer;
+    outline: none;
+  }
+  .cc-btn .flag { font-size: 1.2rem; line-height: 1; }
+  .cc-btn .caret { font-size: .7rem; color: var(--muted); }
+  .cc-panel {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+    width: min(340px, 100%); background: #fff;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.18); overflow: hidden;
+  }
+  .cc-panel.open { display: block; }
+  .cc-panel input { border: none; border-bottom: 1.5px solid var(--border); border-radius: 0; box-shadow: none; }
+  .cc-list { list-style: none; max-height: 260px; overflow-y: auto; }
+  .cc-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; cursor: pointer; font-size: .95rem;
+  }
+  .cc-list li:hover, .cc-list li.active { background: #effaf3; }
+  .cc-list li .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-list li .d { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cc-empty { padding: 14px; color: var(--muted); font-size: .9rem; }
+
+  .buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  button, .btn {
+    font: inherit; font-weight: 600; font-size: 1rem;
+    border: none; border-radius: 10px;
+    padding: 13px 16px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    text-decoration: none;
+    transition: transform .1s, background .15s, box-shadow .15s;
+  }
+  button:active, .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--green); color: #fff; box-shadow: 0 3px 10px rgba(37,211,102,.35); }
+  .btn-primary:hover { background: #1fbd5a; }
+  .btn-secondary { background: #fff; color: var(--green-deep); border: 2px solid var(--green); }
+  .btn-secondary:hover { background: #effaf3; }
+
+  #result { display: none; }
+  #result h2 { font-size: 1rem; color: var(--green-deep); margin-bottom: 10px; }
+  .link-box {
+    background: #f4faf6; border: 1.5px dashed var(--green);
+    border-radius: 10px; padding: 12px;
+    word-break: break-all; font-size: .9rem; color: var(--green-deep);
+  }
+  .link-box a { color: inherit; }
+  .copied { color: var(--green-dark); font-size: .85rem; font-weight: 600; margin-top: 8px; min-height: 1.2em; }
+  .qr-wrap { text-align: center; margin-top: 18px; }
+  #qrcode { display: inline-block; padding: 14px; background: #fff; border: 1.5px solid var(--border); border-radius: 12px; }
+  #qrcode img, #qrcode canvas { display: block; max-width: 100%; height: auto; }
+  .qr-wrap .btn-secondary { margin-top: 12px; width: 100%; }
+
+  footer { text-align: center; padding: 20px 16px 28px; color: var(--muted); font-size: .85rem; }
+  .btn-footer {
+    margin-top: 10px; background: var(--green-deep); color: #fff;
+    font-size: .88rem; padding: 10px 16px; border-radius: 999px;
+  }
+  .btn-footer:hover { background: var(--green-dark); }
+  svg.ico { width: 18px; height: 18px; fill: currentColor; flex: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24 4.54 0 8.24 3.7 8.24 8.24s-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.16-.48-.29z"/></svg>
+  </div>
+  <h1>WhatsApp Direct Chat</h1>
+  <p>Chat with any number worldwide without saving it. Create a link &amp; QR code instantly.</p>
+</header>
+
+<main>
+  <section class="card">
+    <label for="phone">Phone Number</label>
+    <div class="row">
+      <button type="button" class="cc-btn" id="ccBtn" aria-haspopup="listbox" aria-expanded="false" aria-label="Select country code">
+        <span><span class="flag" id="ccFlag"></span> <span id="ccDial"></span></span>
+        <span class="caret">▼</span>
+      </button>
+      <input type="tel" id="phone" inputmode="tel" placeholder="3001234567" autocomplete="tel-national" aria-label="Phone number">
+
+      <div class="cc-panel" id="ccPanel">
+        <input type="search" id="ccSearch" placeholder="Search country or code…" autocomplete="off" aria-label="Search country">
+        <ul class="cc-list" id="ccList" role="listbox"></ul>
+      </div>
+    </div>
+    <div class="hint">Choose a country (240+ available) and enter the number. You can also paste a full number like <b>+44 7911 123456</b> and the country is detected automatically.</div>
+
+    <label for="message">Welcome Message (optional)</label>
+    <textarea id="message" placeholder="Hello! I'd like to know more about your service."></textarea>
+
+    <div class="error" id="error" role="alert"></div>
+
+    <div class="buttons">
+      <button class="btn-primary" id="openBtn">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2z"/></svg>
+        Open WhatsApp Chat
+      </button>
+      <button class="btn-secondary" id="copyBtn">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+        Generate &amp; Copy Link
+      </button>
+    </div>
+  </section>
+
+  <section class="card" id="result">
+    <h2>Your WhatsApp Link</h2>
+    <div class="link-box" id="linkBox"></div>
+    <div class="copied" id="copied"></div>
+
+    <div class="qr-wrap">
+      <div id="qrcode"></div>
+      <button class="btn-secondary" id="downloadBtn">
+        <svg class="ico" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        Download QR Code
+      </button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>Free tool &middot; Your data never leaves your browser</div>
+  <a class="btn btn-footer" id="contactBtn" href="#" target="_blank" rel="noopener">
+    Need a custom tool or website? Contact me on WhatsApp
+  </a>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ====== Put YOUR WhatsApp number here (with country code, digits only, no + or spaces) ======
+   Example: "923001234567"                                                                      */
+const MY_WHATSAPP_NUMBER = "";
+const MY_CONTACT_MESSAGE = "Hi! I need a custom tool or website.";
+
+/* Name | ISO code | Dial code */
+const RAW = `Afghanistan|AF|93
+Albania|AL|355
+Algeria|DZ|213
+American Samoa|AS|1684
+Andorra|AD|376
+Angola|AO|244
+Anguilla|AI|1264
+Antigua and Barbuda|AG|1268
+Argentina|AR|54
+Armenia|AM|374
+Aruba|AW|297
+Australia|AU|61
+Austria|AT|43
+Azerbaijan|AZ|994
+Bahamas|BS|1242
+Bahrain|BH|973
+Bangladesh|BD|880
+Barbados|BB|1246
+Belarus|BY|375
+Belgium|BE|32
+Belize|BZ|501
+Benin|BJ|229
+Bermuda|BM|1441
+Bhutan|BT|975
+Bolivia|BO|591
+Bosnia and Herzegovina|BA|387
+Botswana|BW|267
+Brazil|BR|55
+British Virgin Islands|VG|1284
+Brunei|BN|673
+Bulgaria|BG|359
+Burkina Faso|BF|226
+Burundi|BI|257
+Cambodia|KH|855
+Cameroon|CM|237
+Canada|CA|1
+Cape Verde|CV|238
+Cayman Islands|KY|1345
+Central African Republic|CF|236
+Chad|TD|235
+Chile|CL|56
+China|CN|86
+Colombia|CO|57
+Comoros|KM|269
+Congo|CG|242
+Congo (DR)|CD|243
+Costa Rica|CR|506
+Côte d'Ivoire|CI|225
+Croatia|HR|385
+Cuba|CU|53
+Curaçao|CW|599
+Cyprus|CY|357
+Czechia|CZ|420
+Denmark|DK|45
+Djibouti|DJ|253
+Dominica|DM|1767
+Dominican Republic|DO|1809
+Ecuador|EC|593
+Egypt|EG|20
+El Salvador|SV|503
+Equatorial Guinea|GQ|240
+Eritrea|ER|291
+Estonia|EE|372
+Eswatini|SZ|268
+Ethiopia|ET|251
+Fiji|FJ|679
+Finland|FI|358
+France|FR|33
+French Guiana|GF|594
+French Polynesia|PF|689
+Gabon|GA|241
+Gambia|GM|220
+Georgia|GE|995
+Germany|DE|49
+Ghana|GH|233
+Gibraltar|GI|350
+Greece|GR|30
+Greenland|GL|299
+Grenada|GD|1473
+Guadeloupe|GP|590
+Guam|GU|1671
+Guatemala|GT|502
+Guinea|GN|224
+Guinea-Bissau|GW|245
+Guyana|GY|592
+Haiti|HT|509
+Honduras|HN|504
+Hong Kong|HK|852
+Hungary|HU|36
+Iceland|IS|354
+India|IN|91
+Indonesia|ID|62
+Iran|IR|98
+Iraq|IQ|964
+Ireland|IE|353
+Israel|IL|972
+Italy|IT|39
+Jamaica|JM|1876
+Japan|JP|81
+Jordan|JO|962
+Kazakhstan|KZ|7
+Kenya|KE|254
+Kiribati|KI|686
+Kosovo|XK|383
+Kuwait|KW|965
+Kyrgyzstan|KG|996
+Laos|LA|856
+Latvia|LV|371
+Lebanon|LB|961
+Lesotho|LS|266
+Liberia|LR|231
+Libya|LY|218
+Liechtenstein|LI|423
+Lithuania|LT|370
+Luxembourg|LU|352
+Macau|MO|853
+Madagascar|MG|261
+Malawi|MW|265
+Malaysia|MY|60
+Maldives|MV|960
+Mali|ML|223
+Malta|MT|356
+Martinique|MQ|596
+Mauritania|MR|222
+Mauritius|MU|230
+Mexico|MX|52
+Moldova|MD|373
+Monaco|MC|377
+Mongolia|MN|976
+Montenegro|ME|382
+Montserrat|MS|1664
+Morocco|MA|212
+Mozambique|MZ|258
+Myanmar|MM|95
+Namibia|NA|264
+Nepal|NP|977
+Netherlands|NL|31
+New Caledonia|NC|687
+New Zealand|NZ|64
+Nicaragua|NI|505
+Niger|NE|227
+Nigeria|NG|234
+North Korea|KP|850
+North Macedonia|MK|389
+Norway|NO|47
+Oman|OM|968
+Pakistan|PK|92
+Palestine|PS|970
+Panama|PA|507
+Papua New Guinea|PG|675
+Paraguay|PY|595
+Peru|PE|51
+Philippines|PH|63
+Poland|PL|48
+Portugal|PT|351
+Puerto Rico|PR|1787
+Qatar|QA|974
+Réunion|RE|262
+Romania|RO|40
+Russia|RU|7
+Rwanda|RW|250
+Saint Kitts and Nevis|KN|1869
+Saint Lucia|LC|1758
+Saint Vincent and the Grenadines|VC|1784
+Samoa|WS|685
+San Marino|SM|378
+São Tomé and Príncipe|ST|239
+Saudi Arabia|SA|966
+Senegal|SN|221
+Serbia|RS|381
+Seychelles|SC|248
+Sierra Leone|SL|232
+Singapore|SG|65
+Slovakia|SK|421
+Slovenia|SI|386
+Solomon Islands|SB|677
+Somalia|SO|252
+South Africa|ZA|27
+South Korea|KR|82
+South Sudan|SS|211
+Spain|ES|34
+Sri Lanka|LK|94
+Sudan|SD|249
+Suriname|SR|597
+Sweden|SE|46
+Switzerland|CH|41
+Syria|SY|963
+Taiwan|TW|886
+Tajikistan|TJ|992
+Tanzania|TZ|255
+Thailand|TH|66
+Timor-Leste|TL|670
+Togo|TG|228
+Tonga|TO|676
+Trinidad and Tobago|TT|1868
+Tunisia|TN|216
+Turkey|TR|90
+Turkmenistan|TM|993
+Turks and Caicos Islands|TC|1649
+Uganda|UG|256
+Ukraine|UA|380
+United Arab Emirates|AE|971
+United Kingdom|GB|44
+United States|US|1
+Uruguay|UY|598
+Uzbekistan|UZ|998
+Vanuatu|VU|678
+Vatican City|VA|379
+Venezuela|VE|58
+Vietnam|VN|84
+Yemen|YE|967
+Zambia|ZM|260
+Zimbabwe|ZW|263`;
+
+const COUNTRIES = RAW.split("\n").map(l => {
+  const [name, iso, dial] = l.split("|");
+  const flag = String.fromCodePoint(...[...iso].map(c => 127397 + c.charCodeAt(0)));
+  return { name, iso, dial, flag };
+});
+
+// First country listed wins for shared dial codes (e.g. +1 → US is placed explicitly below)
+const DIAL_MAP = {};
+COUNTRIES.forEach(c => { if (!DIAL_MAP[c.dial]) DIAL_MAP[c.dial] = c; });
+DIAL_MAP["1"] = COUNTRIES.find(c => c.iso === "US");
+DIAL_MAP["7"] = COUNTRIES.find(c => c.iso === "RU");
+
+const $ = id => document.getElementById(id);
+const phoneInp = $("phone"), msgInp = $("message");
+const ccBtn = $("ccBtn"), ccPanel = $("ccPanel"), ccSearch = $("ccSearch"), ccList = $("ccList");
+let selected = COUNTRIES.find(c => c.iso === "PK"); // default: Pakistan
+let activeIndex = 0, filtered = COUNTRIES, qr = null;
+
+try {
+  const saved = localStorage.getItem("wa_country");
+  const c = saved && COUNTRIES.find(x => x.iso === saved);
+  if (c) selected = c;
+} catch (_) {}
+
+function updateButton() {
+  $("ccFlag").textContent = selected.flag;
+  $("ccDial").textContent = "+" + selected.dial;
+}
+
+function selectCountry(c, save = true) {
+  selected = c;
+  updateButton();
+  if (save) { try { localStorage.setItem("wa_country", c.iso); } catch (_) {} }
+}
+
+function renderList() {
+  const q = ccSearch.value.trim().toLowerCase().replace(/^\+/, "");
+  filtered = COUNTRIES.filter(c =>
+    c.name.toLowerCase().includes(q) || c.iso.toLowerCase() === q || c.dial.startsWith(q));
+  if (activeIndex >= filtered.length) activeIndex = 0;
+  ccList.innerHTML = "";
+  if (!filtered.length) {
+    ccList.innerHTML = '<div class="cc-empty">No country found</div>';
+    return;
+  }
+  filtered.forEach((c, i) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    if (i === activeIndex) li.className = "active";
+    li.innerHTML = '<span>' + c.flag + '</span><span class="n"></span><span class="d">+' + c.dial + '</span>';
+    li.querySelector(".n").textContent = c.name;
+    li.addEventListener("click", () => { selectCountry(c); closePanel(); phoneInp.focus(); });
+    ccList.appendChild(li);
+  });
+  const act = ccList.querySelector(".active");
+  if (act) act.scrollIntoView({ block: "nearest" });
+}
+
+function openPanel() {
+  ccPanel.classList.add("open");
+  ccBtn.setAttribute("aria-expanded", "true");
+  ccSearch.value = "";
+  activeIndex = Math.max(0, COUNTRIES.indexOf(selected));
+  renderList();
+  ccSearch.focus();
+  const act = ccList.querySelector(".active");
+  if (act) act.scrollIntoView({ block: "center" });
+}
+function closePanel() {
+  ccPanel.classList.remove("open");
+  ccBtn.setAttribute("aria-expanded", "false");
+}
+
+ccBtn.addEventListener("click", () => ccPanel.classList.contains("open") ? closePanel() : openPanel());
+ccSearch.addEventListener("input", () => { activeIndex = 0; renderList(); });
+ccSearch.addEventListener("keydown", e => {
+  if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, filtered.length - 1); renderList(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); renderList(); }
+  else if (e.key === "Enter") { e.preventDefault(); if (filtered[activeIndex]) { selectCountry(filtered[activeIndex]); closePanel(); phoneInp.focus(); } }
+  else if (e.key === "Escape") { closePanel(); ccBtn.focus(); }
+});
+document.addEventListener("click", e => {
+  if (!ccPanel.contains(e.target) && !ccBtn.contains(e.target)) closePanel();
+});
+
+/* Detect country when a full international number is typed or pasted (+44…, 0044…) */
+function detectFromInternational(raw) {
+  const t = raw.trim();
+  let digits = null;
+  if (t.startsWith("+")) digits = t.replace(/\D/g, "");
+  else if (/^00\d/.test(t.replace(/[\s\-()]/g, ""))) digits = t.replace(/\D/g, "").slice(2);
+  if (!digits) return null;
+  for (let len = 4; len >= 1; len--) {
+    const c = DIAL_MAP[digits.slice(0, len)];
+    if (c) return { country: c, national: digits.slice(len) };
+  }
+  return null;
+}
+
+phoneInp.addEventListener("input", () => {
+  const d = detectFromInternational(phoneInp.value);
+  if (d && d.national.length >= 1) {
+    selectCountry(d.country);
+    phoneInp.value = d.national;
+  }
+});
+
+function showError(t) { $("error").textContent = t || ""; }
+
+function buildLink() {
+  showError("");
+  let raw = phoneInp.value;
+  let country = selected;
+  const det = detectFromInternational(raw);
+  let num;
+  if (det) { country = det.country; num = det.national; }
+  else num = raw.replace(/\D/g, "");
+
+  num = num.replace(/^0+/, ""); // drop local trunk prefix (e.g. 0300… → 300…)
+  // user typed the country code again without "+"
+  if (num.startsWith(country.dial) && num.length >= country.dial.length + 8) num = num.slice(country.dial.length);
+
+  if (num.length < 4 || country.dial.length + num.length > 15) {
+    showError("Please enter a valid phone number.");
+    phoneInp.focus();
+    return null;
+  }
+  const msg = msgInp.value.trim();
+  let link = "https://wa.me/" + country.dial + num;
+  if (msg) link += "?text=" + encodeURIComponent(msg);
+  return link;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
+
+function renderQR(link) {
+  const box = $("qrcode");
+  box.innerHTML = "";
+  if (typeof QRCode === "undefined") {
+    box.textContent = "QR code could not load (check your internet connection).";
+    return;
+  }
+  qr = new QRCode(box, {
+    text: link, width: 220, height: 220,
+    colorDark: "#075E54", colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+$("openBtn").addEventListener("click", () => {
+  const link = buildLink();
+  if (!link) return;
+  window.open(link, "_blank", "noopener");
+});
+
+$("copyBtn").addEventListener("click", async () => {
+  const link = buildLink();
+  if (!link) return;
+  $("linkBox").innerHTML = "";
+  const a = document.createElement("a");
+  a.href = link; a.target = "_blank"; a.rel = "noopener"; a.textContent = link;
+  $("linkBox").appendChild(a);
+  $("result").style.display = "block";
+  renderQR(link);
+  const ok = await copyText(link);
+  $("copied").textContent = ok ? "✓ Link copied to clipboard!" : "Copy failed — please copy the link manually.";
+  $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+$("downloadBtn").addEventListener("click", () => {
+  const src = $("qrcode").querySelector("canvas");
+  if (!src) { alert("Please generate a link first."); return; }
+  const pad = 24, out = document.createEleme
